@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ book.metadata.title }}</title>
+    <style>
+        /* Layout */
+        body { margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; font-family: "Georgia", serif; background: #fff; }
+
+        /* Sidebar */
+        #sidebar { width: 300px; background: #f8f9fa; border-right: 1px solid #e9ecef; overflow-y: auto; padding: 20px; flex-shrink: 0; }
+        .nav-header { font-family: -apple-system, sans-serif; font-weight: bold; color: #495057; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #dee2e6; }
+        .nav-home { display: block; margin-bottom: 20px; color: #3498db; text-decoration: none; font-family: -apple-system, sans-serif; font-size: 0.9em; }
+
+        /* TOC Tree */
+        ul.toc-list { list-style: none; padding-left: 0; margin: 0; }
+        ul.toc-list ul { padding-left: 20px; } /* Indent children */
+        li.toc-item { margin-bottom: 8px; }
+        a.toc-link { text-decoration: none; color: #495057; font-size: 0.95em; display: block; padding: 4px 0; line-height: 1.4; }
+        a.toc-link:hover { color: #000; text-decoration: underline; }
+        a.toc-link.active { color: #d63384; font-weight: bold; }
+
+        /* Main Content */
+        #main { flex-grow: 1; overflow-y: auto; position: relative; scroll-behavior: smooth; }
+        .content-container { max-width: 700px; margin: 0 auto; padding: 60px 40px; line-height: 1.8; font-size: 1.15em; color: #212529; }
+
+        /* Content Styling (Basic normalization for the book HTML) */
+        .book-content img { max-width: 100%; height: auto; display: block; margin: 20px auto; }
+        .book-content h1, .book-content h2, .book-content h3 { font-family: -apple-system, sans-serif; margin-top: 1.5em; color: #333; }
+        .book-content p { margin-bottom: 1.5em; text-align: justify; }
+
+        /* Navigation Footer */
+        .chapter-nav { display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee; font-family: -apple-system, sans-serif; }
+        .nav-btn { text-decoration: none; color: #3498db; font-weight: bold; padding: 10px 20px; border: 1px solid #3498db; border-radius: 4px; transition: all 0.2s; }
+        .nav-btn:hover { background: #3498db; color: white; }
+        .nav-btn.disabled { opacity: 0.5; pointer-events: none; border-color: #ccc; color: #ccc; }
+
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+        <a href="/" class="nav-home">← Back to Library</a>
+        <div class="nav-header">{{ book.metadata.title }}</div>
+
+        <!-- Recursive Macro for TOC -->
+        {% macro render_toc(items) %}
+            <ul class="toc-list">
+            {% for item in items %}
+                <li class="toc-item">
+                    <!--
+                        Matching Logic:
+                        If the TOC item filename matches the current chapter filename, mark active.
+                        Ideally we match spine indices, but Reader 3 TOC maps to filenames.
+                        We use a simple hash matching logic here.
+                    -->
+                    {% set is_active = current_chapter.href == item.file_href %}
+
+                    <!--
+                       We need to find which linear chapter index (0, 1, 2) corresponds
+                       to this TOC entry file.
+                       Since that's hard to calculate in Jinja, we just link to the
+                       file anchor. BUT, to make our linear navigation work, we
+                       rely on the fact that the user is currently reading 'chapter_index'.
+
+                       Ideally, clicking a TOC link should find the 'index' of that file.
+                       For simplicity in this version: We link to the 'href' (filename)
+                       and let JavaScript or Backend handle it?
+
+                       Actually, let's just link to the file. The browser interprets #anchors.
+                       However, our router uses /read/book/INDEX.
+
+                       SIMPLE FIX: We won't link the TOC to the route index in this simple version
+                       unless we build a map. We will visually show structure,
+                       but rely on "Previous/Next" for linear reading.
+
+                       BETTER FIX: Use JavaScript to match filenames.
+                    -->
+                    <a href="#" onclick="findAndGo('{{ item.file_href }}')"
+                       class="toc-link {% if is_active %}active{% endif %}">
+                        {{ item.title }}
+                    </a>
+
+                    {% if item.children %}
+                        {{ render_toc(item.children) }}
+                    {% endif %}
+                </li>
+            {% endfor %}
+            </ul>
+        {% endmacro %}
+
+        {{ render_toc(book.toc) }}
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main">
+        <div class="content-container">
+            <div class="book-content">
+                {{ current_chapter.content | safe }}
+            </div>
+
+            <div class="chapter-nav">
+                {% if prev_idx is not none %}
+                    <a href="/read/{{ book_id }}/{{ prev_idx }}" class="nav-btn">← Previous</a>
+                {% else %}
+                    <span class="nav-btn disabled">← Previous</span>
+                {% endif %}
+
+                <span style="color: #999; padding: 10px;">
+                    Section {{ chapter_index + 1 }} of {{ book.spine|length }}
+                </span>
+
+                {% if next_idx is not none %}
+                    <a href="/read/{{ book_id }}/{{ next_idx }}" class="nav-btn">Next →</a>
+                {% else %}
+                    <span class="nav-btn disabled">Next →</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Helper to map TOC filenames to Spine Indices
+        // Pass the spine data from python to JS
+        const spineMap = {
+            {% for ch in book.spine %}
+            "{{ ch.href }}": {{ ch.order }},
+            {% endfor %}
+        };
+
+        function findAndGo(filename) {
+            // The TOC usually has specific filenames e.g. "text/part001.html"
+            // Sometimes it has anchors "text/part001.html#header"
+            // We strip the anchor to find the page index
+            const cleanFile = filename.split('#')[0];
+            const anchor = filename.split('#')[1];
+
+            const idx = spineMap[cleanFile];
+
+            if (idx !== undefined) {
+                let url = "/read/{{ book_id }}/" + idx;
+                // If there was an anchor, we could try to scroll to it,
+                // but simple page loads often lose anchor position without extra JS.
+                // Let's just go to the page.
+                window.location.href = url;
+            } else {
+                console.log("Could not find index for", filename);
+            }
+        }
+    </script>
+</body>
+</html>
