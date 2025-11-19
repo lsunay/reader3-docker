@@ -173,20 +173,16 @@ def extract_metadata_robust(book_obj) -> BookMetadata:
 # --- Main Conversion Logic ---
 
 def process_epub(epub_path: str, output_dir: str) -> Book:
-
     # 1. Load Book
     print(f"Loading {epub_path}...")
     book = epub.read_epub(epub_path)
-
     # 2. Extract Metadata
     metadata = extract_metadata_robust(book)
-
     # 3. Prepare Output Directories
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir)
     images_dir = os.path.join(output_dir, 'images')
     os.makedirs(images_dir, exist_ok=True)
-
     # 4. Extract Images & Build Map
     print("Extracting images...")
     image_map = {} # Key: internal_path, Value: local_relative_path
@@ -291,18 +287,17 @@ def save_to_pickle(book: Book, output_dir: str):
 
 
 # --- CLI ---
-
 if __name__ == "__main__":
-
     import sys
     if len(sys.argv) < 2:
-        print("Usage: python reader3.py <file.epub>")
+        print("Usage: python reader3.py <file.epub> [output_dir]")
         sys.exit(1)
-
     epub_file = sys.argv[1]
     assert os.path.exists(epub_file), "File not found."
-    out_dir = os.path.splitext(epub_file)[0] + "_data"
-
+    if len(sys.argv) >= 3:
+        out_dir = sys.argv[2]  # Use the second argument.
+    else:
+        out_dir = os.path.splitext(epub_file)[0] + "_data"
     book_obj = process_epub(epub_file, out_dir)
     save_to_pickle(book_obj, out_dir)
     print("\n--- Summary ---")
@@ -311,3 +306,4 @@ if __name__ == "__main__":
     print(f"Physical Files (Spine): {len(book_obj.spine)}")
     print(f"TOC Root Items: {len(book_obj.toc)}")
     print(f"Images extracted: {len(book_obj.images)}")
+

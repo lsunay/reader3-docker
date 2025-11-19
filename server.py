@@ -1,20 +1,30 @@
 import os
 import pickle
+import sys
 from functools import lru_cache
 from typing import Optional
-
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
 from reader3 import Book, BookMetadata, ChapterContent, TOCEntry
+
+class CustomUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if module == '__main__':
+            if name == 'Book':
+                return Book
+            elif name == 'BookMetadata':
+                return BookMetadata
+            elif name == 'ChapterContent':
+                return ChapterContent
+            elif name == 'TOCEntry':
+                return TOCEntry
+        return super().find_class(module, name)
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-
-# Where are the book folders located?
-BOOKS_DIR = "."
+BOOKS_DIR = "/app/books" #Defining the book directory
 
 @lru_cache(maxsize=10)
 def load_book_cached(folder_name: str) -> Optional[Book]:
@@ -25,10 +35,9 @@ def load_book_cached(folder_name: str) -> Optional[Book]:
     file_path = os.path.join(BOOKS_DIR, folder_name, "book.pkl")
     if not os.path.exists(file_path):
         return None
-
     try:
         with open(file_path, "rb") as f:
-            book = pickle.load(f)
+            book = CustomUnpickler(f).load()
         return book
     except Exception as e:
         print(f"Error loading book {folder_name}: {e}")
@@ -38,11 +47,10 @@ def load_book_cached(folder_name: str) -> Optional[Book]:
 async def library_view(request: Request):
     """Lists all available processed books."""
     books = []
-
     # Scan directory for folders ending in '_data' that have a book.pkl
     if os.path.exists(BOOKS_DIR):
         for item in os.listdir(BOOKS_DIR):
-            if item.endswith("_data") and os.path.isdir(item):
+            if item.endswith("_data") and os.path.isdir(os.path.join(BOOKS_DIR, item)):
                 # Try to load it to get the title
                 book = load_book_cached(item)
                 if book:
@@ -52,7 +60,6 @@ async def library_view(request: Request):
                         "author": ", ".join(book.metadata.authors),
                         "chapters": len(book.spine)
                     })
-
     return templates.TemplateResponse("library.html", {"request": request, "books": books})
 
 @app.get("/read/{book_id}", response_class=HTMLResponse)
