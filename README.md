@@ -66,10 +66,10 @@ docker run -d \
  ![cllama-settings](cllama_settings.png)
 - Go to the Deep-insight menu and add custom insight receipts.
  ![deepinsight-settings](deep_insight1.png)
-- After making all settings and custom insights prompts, click the cllama plugin, choose the Deep Insight. The sidebar opens in the web browser; you don't have to copy-paste or enter any prompts. Just click the insights and see the results in the sidebar. 
+- After making all settings and custom insights prompts, click the cllama plugin, choose the Deep Insight. The sidebar opens in the web browser; you don't have to copy-paste or enter any prompts. Just click the insights and see the results in the sidebar.
  ![reader3](reader32.png)
-- You can also use Smart-Chat section of cllama and ask anything or copy specific part of the page. 
- ![smart-chat](smart-chat.png) 
+- You can also use Smart-Chat section of cllama and ask anything or copy specific part of the page.
+ ![smart-chat](smart-chat.png)
 - For best results, pair with AI tools for summarizing or discussing books.
 - cllama extension support page https://fxdq.net/cllama/en/index.html
 - The developer of the cllama web extension will create a GitHub page soon. Currently, it does not have an Android version. Personally, I transformed it into a Firefox Android version with a self-signed certificate for my personal use. If anyone needs it, please like and fork this repo and write a comment.
